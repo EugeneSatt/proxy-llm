@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # proxy-veo — Vertex AI (Veo) thin proxy (Railway EU/US)
 
 Тонкий прокси-сервис для вызова **Google Vertex AI (Veo)** из региона EU/US (например, Railway).
@@ -209,3 +210,80 @@ MIT (по желанию)
 * несколько роутов под разные модели (Imagen/Veo)
 * кеширование результатов (обычно не надо)
 * подпись запросов HMAC
+=======
+# proxy-veo
+
+Тонкий прокси к Google Vertex AI (Veo) на Fastify. Не хранит Vertex access token — проксирует его из каждого запроса. Готов к деплою на Railway (EU/US).
+
+## Стек
+- Node.js 20+, TypeScript
+- Fastify + helmet + rate limit
+- Pino-логирование с редактированием чувствительных заголовков
+- 1 retry на 5xx/429 с джиттером, таймаут запроса к Vertex по `REQUEST_TIMEOUT_MS`
+
+## Быстрый старт локально
+1. Скопируйте `.env.example` в `.env` и заполните значения.
+2. Установите зависимости:
+   ```bash
+   npm install
+   ```
+3. Запуск в dev-режиме с авто-ребилдом:
+   ```bash
+   npm run dev
+   ```
+4. Продакшн-сборка и запуск:
+   ```bash
+   npm run build
+   npm start
+   ```
+
+## Переменные окружения
+- `PORT` — порт сервера (по умолчанию 3000)
+- `PROXY_API_KEY` — секрет для заголовка `x-api-key`
+- `GCP_PROJECT_ID` — ваш GCP проект
+- `GCP_LOCATION` — регион Vertex (например, `us-central1`, `europe-west4`)
+- `VEO_MODEL_ID` — модель Veo (например, `veo-3.0-generate`)
+- `REQUEST_TIMEOUT_MS` — таймаут запроса к Vertex, мс (по умолчанию 60000)
+- `RATE_LIMIT_PER_MINUTE` — лимит запросов в минуту (по умолчанию 30)
+- `LOG_LEVEL` — уровень логирования Pino (`info`, `warn`, `error`, ...)
+
+## API
+- `GET /health` → `{ "ok": true }`
+- `POST /veo/generate`
+  - Заголовки: `x-api-key` (обязательно), `Authorization: Bearer <VERTEX_ACCESS_TOKEN>` (обязательно), `Content-Type: application/json`
+  - Тело: любой JSON, проксируется 1:1 в Vertex
+  - Ответ: статус и тело Vertex без изменений (если Vertex вернул не-JSON — отдаётся текст с тем же статусом)
+
+## Пример запроса
+```bash
+curl -X POST http://localhost:3000/veo/generate \
+  -H "x-api-key: super-secret" \
+  -H "Authorization: Bearer ${VERTEX_ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instances": [
+      {
+        "prompt": "A calm sunset over mountains",
+        "image": {
+          "mimeType": "image/png",
+          "gcsUri": "gs://your-bucket/sample.png"
+        }
+      }
+    ]
+  }'
+```
+
+## Деплой на Railway
+1. Создайте новый проект на Railway и выберите регион, близкий к `GCP_LOCATION` (например, Railway EU ⇔ `europe-west4`, Railway US ⇔ `us-central1`).
+2. Подключите репозиторий или загрузите папку `proxy-veo/`.
+3. В переменные окружения Railway добавьте значения из `.env.example` (`PROXY_API_KEY`, `GCP_PROJECT_ID`, `GCP_LOCATION`, `VEO_MODEL_ID`, `REQUEST_TIMEOUT_MS`, `RATE_LIMIT_PER_MINUTE`, `LOG_LEVEL`).
+4. Стартовая команда по умолчанию: `npm run start` (Railway установит зависимости и выполнит сборку `npm run build`).
+5. Убедитесь, что сервис слушает `0.0.0.0:$PORT` (конфиг по умолчанию уже так и делает).
+
+## Поведение и безопасность
+- CORS выключен (никаких публичных браузерных вызовов).
+- Лимит тела JSON: 20mb.
+- Проверка `x-api-key` и `Authorization: Bearer ...` на каждом запросе.
+- Rate limit: `RATE_LIMIT_PER_MINUTE` на IP или `x-api-key`.
+- Логирование не включает `Authorization`, `x-api-key` и тело запроса/ответа.
+>>>>>>> 79177ac (init project)
